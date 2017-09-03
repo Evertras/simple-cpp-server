@@ -7,8 +7,11 @@
 using namespace std::chrono;
 using namespace std::this_thread;
 
-const nanoseconds UPDATE_STEP = duration_cast<nanoseconds>(milliseconds(10));
-const nanoseconds DRAW_STEP_TARGET = duration_cast<nanoseconds>(milliseconds(100));
+const nanoseconds UPDATE_STEP =
+  duration_cast<nanoseconds>(milliseconds(10));
+
+const nanoseconds DRAW_STEP_TARGET =
+  duration_cast<nanoseconds>(milliseconds(100));
 
 Game::Game()
 {
@@ -26,7 +29,7 @@ void Game::run()
   nanoseconds lag(0);
 
   state.scvCount = 1;
-  state.marineCount = 1;
+  state.marineCount = 0;
   state.mineralCount = 0;
   frameCount = 0;
 
