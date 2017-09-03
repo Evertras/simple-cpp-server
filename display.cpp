@@ -8,6 +8,7 @@ Display::Display()
 {
   initscr();
   cbreak();
+  noecho();
 }
 
 Display::~Display()
@@ -18,8 +19,6 @@ Display::~Display()
 void Display::draw(const State &snapshot)
 {
   char statusLine[256];
-
-  clear();
 
   snprintf(
       statusLine,

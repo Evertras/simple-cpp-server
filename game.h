@@ -14,6 +14,8 @@ class Game
   private:
     Display display;
     State state;
+    bool wantQuit;
+    int frameCount;
 
     void update();
 };
