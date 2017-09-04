@@ -4,6 +4,10 @@
 
 #include "game.h"
 
+#include "actionBuildSCV.h"
+#include "actionBuildMarine.h"
+#include "actionMineralTick.h"
+
 using namespace std::chrono;
 using namespace std::this_thread;
 
@@ -21,12 +25,24 @@ Game::Game()
 
 Game::~Game()
 {
+  while (!pendingActions.empty())
+  {
+    delete pendingActions.front();
+    pendingActions.pop();
+  }
+
+  for (auto a : executedActions)
+  {
+    delete a.getAction();
+  }
+
+  executedActions.clear();
 }
 
 void Game::run()
 {
   high_resolution_clock::time_point last = high_resolution_clock::now();
-  nanoseconds lag(0);
+  nanoseconds accumulatedLag(0);
 
   state.scvCount = 1;
   state.marineCount = 0;
@@ -36,11 +52,12 @@ void Game::run()
   while (!wantQuit) {
     auto start = high_resolution_clock::now();
 
-    lag += duration_cast<nanoseconds>(start - last);
+    accumulatedLag += duration_cast<nanoseconds>(start - last);
 
-    while (lag > UPDATE_STEP) {
-      lag -= UPDATE_STEP;
+    while (accumulatedLag > UPDATE_STEP) {
+      accumulatedLag -= UPDATE_STEP;
       update();
+      runPendingActions();
     }
 
     auto remaining = DRAW_STEP_TARGET - (high_resolution_clock::now() - start);
@@ -50,39 +67,69 @@ void Game::run()
 
     display.draw(state);
   }
+
+  clear();
+
+  // Cheaty for now to print some debug info after run
+  char statusLine[256];
+
+  auto i = 0;
+  for (auto e : executedActions) {
+    snprintf(
+        statusLine,
+        sizeof(statusLine),
+        "%05d %s",
+        e.getFrame(),
+        e.getAction()->getName());
+    mvprintw(i++, 0, statusLine);
+  }
+
+  notimeout(stdscr, FALSE);
+  getch();
 }
 
 void Game::update()
 {
   ++frameCount;
+
+  if (frameCount % 100 == 0)
+  {
+    pendingActions.push(new ActionMineralTick());
+  }
+
   auto c = getch();
 
   switch (c) {
     case 's':
-      if (state.mineralCount >= 50)
-      {
-        state.mineralCount -= 50;
-        state.scvCount += 1;
-      }
+      pendingActions.push(new ActionBuildSCV());
       break;
 
     case 'm':
-      if (state.mineralCount >= 50)
-      {
-        state.mineralCount -= 50;
-        state.marineCount += 1;
-      }
+      pendingActions.push(new ActionBuildMarine());
       break;
 
     case 'q':
       wantQuit = true;
       break;
   }
+}
 
-
-  if (frameCount % 100 == 0)
+void Game::runPendingActions()
+{
+  while (!pendingActions.empty())
   {
-    state.mineralCount += state.scvCount * 5;
+    auto pending = pendingActions.front();
+
+    if (pending->canAct(state))
+    {
+      auto mutated = pending->actOn(state);
+
+      executedActions.push_back(ExecutedAction(frameCount, pending, mutated));
+
+      state = mutated;
+    }
+
+    pendingActions.pop();
   }
 }
 
